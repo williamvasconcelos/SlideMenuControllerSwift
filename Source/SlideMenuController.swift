@@ -10,19 +10,19 @@ import UIKit
 
 class SlideMenuOption {
     
-    let leftViewOverlapWidth: CGFloat = 60.0
-    let leftBezelWidth: CGFloat = 16.0
-    let contentViewScale: CGFloat = 0.96
+    let leftViewOverlapWidth: CGFloat = 70.0
+    let leftBezelWidth: CGFloat = 46.0
+    let contentViewScale: CGFloat = 1
     let contentViewOpacity: CGFloat = 0.5
     let shadowOpacity: CGFloat = 0.0
     let shadowRadius: CGFloat = 0.0
     let shadowOffset: CGSize = CGSizeMake(0,0)
     let panFromBezel: Bool = true
-    let animationDuration: CGFloat = 0.4
-    let rightViewOverlapWidth: CGFloat = 60.0
-    let rightBezelWidth: CGFloat = 16.0
+    let animationDuration: CGFloat = 0.3
+    let rightViewOverlapWidth: CGFloat = 70.0
+    let rightBezelWidth: CGFloat = 46.0
     let rightPanFromBezel: Bool = true
-    let hideStatusBar: Bool = true
+    let hideStatusBar: Bool = false
     let pointOfNoReturnWidth: CGFloat = 44.0
     
     init() {
@@ -33,6 +33,13 @@ class SlideMenuOption {
 
 class SlideMenuController: UIViewController, UIGestureRecognizerDelegate {
 
+    func logTrace(message: @autoclosure () -> String, file: StaticString = __FILE__, line: UWord = __LINE__) {
+        #if DEBUG
+            let msg = message()
+            println("\(__FILE__):\(__LINE__): \(msg)")
+        #endif
+    }
+    
     enum SlideAction {
         case Open
         case Close
@@ -44,7 +51,6 @@ class SlideMenuController: UIViewController, UIGestureRecognizerDelegate {
         case FlickOpen
         case FlickClose
     }
-    
     
     struct PanInfo {
         var action: SlideAction
@@ -65,7 +71,6 @@ class SlideMenuController: UIViewController, UIGestureRecognizerDelegate {
     var rightTapGesture: UITapGestureRecognizer?
     var options = SlideMenuOption()
 
-    
     override init() {
         super.init()
     }
@@ -279,17 +284,27 @@ class SlideMenuController: UIViewController, UIGestureRecognizerDelegate {
                 LeftPanState.wasHiddenAtStartOfPan = self.isLeftHidden()
                 
                 self.leftViewController?.beginAppearanceTransition(LeftPanState.wasHiddenAtStartOfPan, animated: true)
+                self.mainViewController?.beginAppearanceTransition(LeftPanState.wasHiddenAtStartOfPan, animated: true)
                 self.addShadowToView(self.leftContainerView)
                 self.setOpenWindowLevel()
             case UIGestureRecognizerState.Changed:
                 
                 var translation: CGPoint = panGesture.translationInView(panGesture.view!)
                 self.leftContainerView.frame = self.applyLeftTranslation(translation, toFrame: LeftPanState.frameAtStartOfPan)
+                
+                
+                var nFrame = self.leftContainerView.frame
+                nFrame.size.width = self.mainContainerView.frame.size.width
+                nFrame.origin.x = nFrame.origin.x + self.leftContainerView.frame.size.width
+                self.mainContainerView.frame = nFrame
+                
+                
                 self.applyLeftOpacity()
                 self.applyLeftContentViewScale()
             case UIGestureRecognizerState.Ended:
                 
                 self.leftViewController?.beginAppearanceTransition(!LeftPanState.wasHiddenAtStartOfPan, animated: true)
+                self.mainViewController?.beginAppearanceTransition(!LeftPanState.wasHiddenAtStartOfPan, animated: true)
                 var velocity:CGPoint = panGesture.velocityInView(panGesture.view)
                 var panInfo: PanInfo = self.panLeftResultInfoForVelocity(velocity)
                 
@@ -336,18 +351,28 @@ class SlideMenuController: UIViewController, UIGestureRecognizerDelegate {
             rightPanState.wasHiddenAtStartOfPan = self.isRightHidden()
             
             self.rightViewController?.beginAppearanceTransition(rightPanState.wasHiddenAtStartOfPan, animated: true)
+            self.mainViewController?.beginAppearanceTransition(rightPanState.wasHiddenAtStartOfPan, animated: true)
             self.addShadowToView(self.rightContainerView)
             self.setOpenWindowLevel()
         case UIGestureRecognizerState.Changed:
             
             var translation: CGPoint = panGesture.translationInView(panGesture.view!)
             self.rightContainerView.frame = self.applyRightTranslation(translation, toFrame: rightPanState.frameAtStartOfPan)
+            
+            
+            var nFrame = self.rightContainerView.frame
+            nFrame.size.width = self.mainContainerView.frame.size.width
+            nFrame.origin.x = nFrame.origin.x - self.rightContainerView.frame.size.width - 70.0
+            self.mainContainerView.frame = nFrame
+            
+            
             self.applyRightOpacity()
             self.applyRightContentViewScale()
             
         case UIGestureRecognizerState.Ended:
             
             self.rightViewController?.beginAppearanceTransition(!rightPanState.wasHiddenAtStartOfPan, animated: true)
+            self.mainViewController?.beginAppearanceTransition(rightPanState.wasHiddenAtStartOfPan, animated: true)
             var velocity: CGPoint = panGesture.velocityInView(panGesture.view)
             var panInfo: PanInfo = self.panRightResultInfoForVelocity(velocity)
             
@@ -381,6 +406,13 @@ class SlideMenuController: UIViewController, UIGestureRecognizerDelegate {
             self.leftContainerView.frame = frame
             self.opacityView.layer.opacity = Float(self.options.contentViewOpacity)
             self.mainContainerView.transform = CGAffineTransformMakeScale(self.options.contentViewScale, self.options.contentViewScale)
+            
+            //Add animation to main
+            var nframe = self.mainContainerView.frame
+            nframe.origin.x = frame.size.width
+            self.mainContainerView.frame = nframe
+            //
+            
         }) { (Bool) -> Void in
             self.disableContentInteraction()
         }
@@ -407,6 +439,13 @@ class SlideMenuController: UIViewController, UIGestureRecognizerDelegate {
             self.rightContainerView.frame = frame
             self.opacityView.layer.opacity = Float(self.options.contentViewOpacity)
             self.mainContainerView.transform = CGAffineTransformMakeScale(self.options.contentViewScale, self.options.contentViewScale)
+            
+            //Add animation to main
+            var nframe = self.mainContainerView.frame
+            nframe.origin.x = -frame.size.width
+            self.mainContainerView.frame = nframe
+            //
+            
             }) { (Bool) -> Void in
                 self.disableContentInteraction()
         }
@@ -430,6 +469,13 @@ class SlideMenuController: UIViewController, UIGestureRecognizerDelegate {
             self.leftContainerView.frame = frame
             self.opacityView.layer.opacity = 0.0
             self.mainContainerView.transform = CGAffineTransformMakeScale(1.0, 1.0)
+            
+            //add animation to main
+            var nframe = self.mainContainerView.frame
+            nframe.origin.x = 0
+            self.mainContainerView.frame = nframe
+            //
+            
             }) { (Bool) -> Void in
                 self.removeShadow(self.leftContainerView)
                 self.enableContentInteraction()
@@ -455,6 +501,13 @@ class SlideMenuController: UIViewController, UIGestureRecognizerDelegate {
             self.rightContainerView.frame = frame
             self.opacityView.layer.opacity = 0.0
             self.mainContainerView.transform = CGAffineTransformMakeScale(1.0, 1.0)
+            
+            //add animation to main
+            var nframe = self.mainContainerView.frame
+            nframe.origin.x = 0
+            self.mainContainerView.frame = nframe
+            //
+            
             }) { (Bool) -> Void in
                 self.removeShadow(self.rightContainerView)
                 self.enableContentInteraction()
